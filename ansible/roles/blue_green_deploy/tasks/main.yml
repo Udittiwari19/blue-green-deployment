@@ -20,7 +20,7 @@
   delay: 3
   until: green_health.status == 200
 
-- name: "STEP 2b | Warm-up readiness check (5 consecutive healthy polls, 3s apart)"
+- name: "STEP 2b | Warm-up readiness check (5 consecutive healthy polls, 1s apart)"
   uri:
     url: "{{ green_health_url }}"
     method: GET
@@ -28,12 +28,12 @@
     timeout: 3
   register: warmup_result
   retries: 5
-  delay: 3
+  delay: 1
   until: warmup_result.status == 200
   # Rationale: We already know epsilon started (STEP 2). Now we confirm it
   # can sustain 5 consecutive successful health checks before touching Nginx.
-  # This is a real readiness signal — not a fixed sleep — because JIT-warmed
-  # services answer faster and more reliably than cold ones.
+  # Delay reduced to 1s (from 3s) because run_wrk2_prewarm.sh already fired
+  # 100 real HTTP requests directly at Green — JVMs are hot, no need to wait.
 
 
 - name: "STEP 3 | Write GREEN upstream config"

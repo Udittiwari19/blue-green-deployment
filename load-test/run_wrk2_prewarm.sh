@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────
-#  run_wrk2.sh — Load test harness for blue-green switchover
+#  run_wrk2_prewarm.sh — Load test harness with JIT-targeted prewarm
 #
 #  What it does:
-#    1. Runs wrk2 continuously against http://localhost/ (through Nginx)
-#    2. Triggers the Ansible deploy playbook mid-test
-#    3. Saves timestamped raw output + a summary CSV for Layer 2 analysis
+#    1. Fires PREWARM_REQUESTS directly at Green's epsilon port
+#       so JIT is warmed under REAL HTTP load (not just container health)
+#    2. Runs wrk2 continuously against http://localhost/ (through Nginx)
+#    3. Triggers the Ansible deploy playbook mid-test
+#    4. Saves timestamped raw output + summary CSV for Layer 2 analysis
 #
-#  Prerequisites: wrk2 installed (see README.md)
-#  Usage: cd load-test && ./run_wrk2.sh
+#  Prerequisites: wrk2 installed (see README.md), Green containers
+#                 already running (make load-test-prewarm handles this)
+#  Usage: cd load-test && ./run_wrk2_prewarm.sh
 # ─────────────────────────────────────────────────────────────────
 
 set -euo pipefail
@@ -33,16 +36,21 @@ RATE=50               # req/s — set below system saturation point (~75 req/s).
 SWITCHOVER_DELAY=60   # wait 60s before triggering switchover — lets p50/p99
                       # settle at baseline before the switchover blip
 
+# ── Prewarm parameters (hits Green directly to warm JIT under load) ──
+GREEN_PREWARM_URL="http://localhost:8205/"
+PREWARM_REQUESTS=100  # number of concurrent prewarm requests
+PREWARM_PAUSE=0.1     # seconds between prewarm bursts (aggressive JIT warming)
+
 mkdir -p "$RESULTS_DIR"
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "  Blue-Green Load Test — $(date)"
+echo "  Blue-Green Load Test (Pre-warmed) — $(date)"
 echo "  Target : $TARGET_URL"
 echo "  Rate   : ${RATE} req/s  |  Duration: ${DURATION}s"
 echo "  Output : $RESULT_FILE"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-# Check wrk2 is available (local binary first, then PATH)
+# ── Check wrk2 is available (local binary first, then PATH) ────────
 LOCAL_WRK2="${SCRIPT_DIR}/wrk2_bin"
 if [ -x "$LOCAL_WRK2" ]; then
   WRK_CMD="$LOCAL_WRK2 -t${THREADS} -c${CONNECTIONS} -d${DURATION}s -R${RATE} --latency -s ${SCRIPT_DIR}/report.lua"
@@ -57,8 +65,7 @@ else
   exit 1
 fi
 
-# ── Wait for Nginx to be ready before starting ────────────────────
-# Use /nginx-health (always 200 from Nginx itself, no upstream needed)
+# ── Wait for Nginx to be ready ─────────────────────────────────────
 NGINX_READY=0
 echo "[$(date +%T)] Waiting for Nginx to be ready..."
 for i in $(seq 1 30); do
@@ -76,8 +83,40 @@ if [ "$NGINX_READY" -eq 0 ]; then
   exit 1
 fi
 
+# ── Wait for Green epsilon to be healthy (direct port) ─────────────
+GREEN_READY=0
+echo "[$(date +%T)] Checking Green epsilon is ready on :8205..."
+for i in $(seq 1 30); do
+  if curl -sf "${GREEN_PREWARM_URL}health" > /dev/null 2>&1; then
+    echo "[$(date +%T)] Green epsilon is healthy (attempt $i)."
+    GREEN_READY=1
+    break
+  fi
+  echo "[$(date +%T)] Green not ready yet (attempt $i/30), retrying in 1s..."
+  sleep 1
+done
+
+if [ "$GREEN_READY" -eq 0 ]; then
+  echo "[ERROR] Green epsilon did not become ready after 30s."
+  echo "        Run 'make load-test-prewarm' to start Green containers first."
+  exit 1
+fi
+
+# ── JIT Prewarm: fire real HTTP load directly at Green ─────────────
+echo "[$(date +%T)] >>> JIT Prewarm: firing ${PREWARM_REQUESTS} requests directly at Green (:8205)..."
+for i in $(seq 1 "$PREWARM_REQUESTS"); do
+  curl -sf "${GREEN_PREWARM_URL}" > /dev/null 2>&1 &
+  if (( i % 10 == 0 )); then
+    wait        # flush every 10 to avoid file descriptor exhaustion
+    sleep "$PREWARM_PAUSE"
+    echo "[$(date +%T)]   Prewarm burst $i/${PREWARM_REQUESTS} done..."
+  fi
+done
+wait
+echo "[$(date +%T)] JIT Prewarm complete. Green JVMs are hot."
+
 # ── Start load test in background ─────────────────────────────────
-echo "[$(date +%T)] Starting load test..."
+echo "[$(date +%T)] Starting load test at ${RATE} req/s..."
 $WRK_CMD "$TARGET_URL" > "$RESULT_FILE" 2>&1 &
 WRK_PID=$!
 echo "[$(date +%T)] wrk PID: $WRK_PID"

@@ -19,8 +19,11 @@ green_health_url: "http://localhost:8205/health"
 gateway_url: "http://localhost/health"
 
 # Health gate thresholds
-health_gate_retries:      6     # number of poll attempts after switchover
-health_gate_delay:        5     # seconds between attempts
+# 3 retries × 2s delay = 6s worst-case gate time (down from 6×5=30s).
+# Safe because STEP 2 already confirmed green is healthy before nginx switches.
+# The gate is a post-switch sanity check, not the primary readiness mechanism.
+health_gate_retries:      3     # number of poll attempts after switchover
+health_gate_delay:        2     # seconds between attempts
 health_gate_fail_status:  503   # HTTP status considered a failure
 
 # Rollback log location
