@@ -17,7 +17,7 @@ This article describes a self-contained framework that:
 3. **Measures actual application downtime** — counting 5xx responses per second with timestamps — not just deployment elapsed time
 4. Provides an **automatic rollback** triggered by configurable health-check thresholds
 
-The result: a sub-100ms downtime window for a graceful Nginx upstream reload, even under 500 req/s sustained load.
+The result: **zero HTTP errors observed** across the full blue→green switchover window under 200 req/s sustained load. The traffic switch itself is a graceful Nginx upstream reload (`nginx -s reload`), which finishes in-flight requests before applying the new configuration — making the switch atomic from the client's perspective.
 
 ---
 
@@ -40,7 +40,7 @@ The result: a sub-100ms downtime window for a graceful Nginx upstream reload, ev
 
 **Nginx** is the single entry point. It reads `nginx/conf.d/upstream.conf`, which declares a single `upstream app_upstream {}` block pointing to either `epsilon-blue:5000` or `epsilon-green:5000`.
 
-**Ansible** switches traffic by writing a new `upstream.conf` and issuing `docker exec nginx nginx -s reload`. The `-s reload` signal is graceful — Nginx finishes in-flight requests before applying the new configuration. This is the key to sub-100ms downtime.
+**Ansible** switches traffic by writing a new `upstream.conf` and issuing `docker exec nginx nginx -s reload`. The `-s reload` signal is graceful — Nginx forks new worker processes with the updated config while existing workers finish their in-flight requests, then exit. No connections are dropped. This is the mechanism that makes zero-error switchovers possible.
 
 **svc-epsilon** is the API gateway. It aggregates health from all four backend services (alpha, beta, gamma, delta) and returns HTTP 503 if any upstream is unreachable. This feeds the Ansible `health_gate` role's auto-rollback decision.
 
@@ -221,7 +221,9 @@ make load-test
 
 ## What the Measurements Show
 
-Running the load test at 200 req/s with a 90-second window and triggering switchover at T+20s produces the following measured result:
+Running the load test at 200 req/s with a 90-second window and triggering switchover at T+20s produces the following measured result.
+
+> **Measurement scope**: wrk2 counts every HTTP response across the entire 90-second window. The P50/P99 latency figures cover that full window (including JVM cold-start). They are not isolated to the switchover instant. The critical measured result is the error count — zero non-2xx responses across 18,000+ requests, spanning a live deployment event.
 
 | Metric | Observed Value |
 |---|---|

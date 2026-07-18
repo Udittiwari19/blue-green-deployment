@@ -1,3 +1,6 @@
 ---
 # Overridable defaults for blue_green_deploy role
-project_root: "/home/udit/SummerProject"
+# playbook_dir is an Ansible magic variable — resolves to the directory
+# containing the playbook being run (i.e. ansible/). We go one level up
+# to reach the project root. Override with -e project_root=/your/path
+project_root: "{{ playbook_dir | dirname }}"

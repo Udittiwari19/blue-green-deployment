@@ -2,8 +2,11 @@
 #  Shared variables for all Ansible roles
 # ─────────────────────────────────────────────────────────
 
-# Absolute path to the project root on the control machine
-project_root: "/home/udit/SummerProject"
+# Absolute path to the project root on the control machine.
+# Uses Ansible's built-in playbook_dir magic variable (the ansible/ directory)
+# and walks one level up. Override at runtime: -e project_root=/your/path
+project_root: "{{ playbook_dir | dirname }}"
+
 
 # Upstream config file that Ansible writes (volume-mounted into Nginx)
 nginx_upstream_conf: "{{ project_root }}/nginx/conf.d/upstream.conf"
