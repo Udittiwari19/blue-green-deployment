@@ -1,0 +1,46 @@
+---
+# ─────────────────────────────────────────────────────────
+#  Role: rollback
+#  Purpose: Idempotent rollback — swap upstream back to blue,
+#           reload Nginx, restart blue if stopped, stop green.
+# ─────────────────────────────────────────────────────────
+
+- name: "ROLLBACK | Write BLUE upstream config"
+  copy:
+    dest: "{{ nginx_upstream_conf }}"
+    content: |
+      # Managed by Ansible — rollback role
+      # Rolled back at: {{ ansible_date_time.iso8601 }}
+      upstream app_upstream {
+          server epsilon-blue:5000;
+      }
+    mode: "0644"
+
+- name: "ROLLBACK | Ensure BLUE environment is running"
+  command: docker compose --profile blue up -d
+  args:
+    chdir: "{{ project_root }}"
+
+- name: "ROLLBACK | Reload Nginx (route traffic back to blue)"
+  command: docker exec nginx nginx -s reload
+
+- name: "ROLLBACK | Ensure Nginx container is running"
+  command: docker compose up -d nginx
+  args:
+    chdir: "{{ project_root }}"
+
+- name: "ROLLBACK | Stop GREEN environment"
+  command: docker compose stop alpha-green beta-green gamma-green delta-green epsilon-green
+  args:
+    chdir: "{{ project_root }}"
+
+- name: "ROLLBACK | Append event to rollback log"
+  lineinfile:
+    path: "{{ rollback_log }}"
+    line: "{{ ansible_date_time.iso8601 }} | ROLLBACK | reason={{ rollback_reason | default('health_gate_failure') }}"
+    create: true
+    mode: "0644"
+
+- name: "ROLLBACK | Summary"
+  debug:
+    msg: "Rollback complete. Traffic restored to BLUE. Green containers stopped. Event logged to {{ rollback_log }}"

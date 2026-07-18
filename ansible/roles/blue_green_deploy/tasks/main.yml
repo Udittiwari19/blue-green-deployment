@@ -1,0 +1,45 @@
+---
+# ─────────────────────────────────────────────────────────
+#  Role: blue_green_deploy
+#  Purpose: Spin up green, verify health, swap Nginx upstream
+# ─────────────────────────────────────────────────────────
+
+- name: "STEP 1 | Build and start GREEN environment"
+  command: docker compose --profile green up -d --build
+  args:
+    chdir: "{{ project_root }}"
+
+- name: "STEP 2 | Wait for GREEN epsilon gateway to be healthy (direct port)"
+  uri:
+    url: "{{ green_health_url }}"
+    method: GET
+    status_code: 200
+    timeout: 5
+  register: green_health
+  retries: 10
+  delay: 3
+  until: green_health.status == 200
+
+- name: "STEP 2b | JVM warm-up pause (let Spring Boot finish JIT compilation)"
+  pause:
+    seconds: 15
+    prompt: "Waiting 15s for GREEN JVM to warm up before switching traffic..."
+
+- name: "STEP 3 | Write GREEN upstream config"
+  copy:
+    dest: "{{ nginx_upstream_conf }}"
+    content: |
+      # Managed by Ansible — blue_green_deploy role
+      # Switched at: {{ ansible_date_time.iso8601 }}
+      upstream app_upstream {
+          server epsilon-green:5000;
+      }
+    mode: "0644"
+
+- name: "STEP 4 | Reload Nginx (graceful — in-flight requests finish)"
+  command: docker exec nginx nginx -s reload
+  notify: nginx reloaded
+
+- name: "STEP 5 | Run health gate (will auto-rollback if thresholds breached)"
+  include_role:
+    name: health_gate

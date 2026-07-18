@@ -1,0 +1,24 @@
+# ─────────────────────────────────────────────────────────
+#  Shared variables for all Ansible roles
+# ─────────────────────────────────────────────────────────
+
+# Absolute path to the project root on the control machine
+project_root: "/home/udit/SummerProject"
+
+# Upstream config file that Ansible writes (volume-mounted into Nginx)
+nginx_upstream_conf: "{{ project_root }}/nginx/conf.d/upstream.conf"
+
+# Direct host ports for pre-switch health verification (bypasses Nginx)
+blue_health_url:  "http://localhost:8105/health"
+green_health_url: "http://localhost:8205/health"
+
+# Nginx gateway URL (through the proxy)
+gateway_url: "http://localhost/health"
+
+# Health gate thresholds
+health_gate_retries:      6     # number of poll attempts after switchover
+health_gate_delay:        5     # seconds between attempts
+health_gate_fail_status:  503   # HTTP status considered a failure
+
+# Rollback log location
+rollback_log: "{{ project_root }}/rollback.log"

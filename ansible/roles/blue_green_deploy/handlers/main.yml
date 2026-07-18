@@ -1,0 +1,4 @@
+---
+- name: nginx reloaded
+  debug:
+    msg: "Nginx reloaded successfully — traffic now routing to new upstream."

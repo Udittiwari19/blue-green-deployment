@@ -1,0 +1,162 @@
+version: "3.9"
+
+# ─────────────────────────────────────────────
+#  Blue-Green Deployment Demo — docker-compose.yml
+#  Usage:
+#    docker compose --profile blue  up -d --build   # start blue env
+#    docker compose --profile green up -d --build   # start green alongside blue
+#    docker compose --profile blue  stop            # drain blue after switchover
+# ─────────────────────────────────────────────
+
+networks:
+  bluegreen-net:
+    driver: bridge
+
+services:
+
+  # ── Nginx reverse proxy (always running) ──────────────────────
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d      # Ansible writes upstream.conf here
+    networks:
+      - bluegreen-net
+    restart: unless-stopped
+
+  # ══ BLUE environment ══════════════════════════════════════════
+  alpha-blue:
+    build: ./services/svc-alpha
+    container_name: alpha-blue
+    profiles: [blue]
+    environment:
+      SERVICE_NAME: alpha
+      COLOR: blue
+      VERSION: "1.0"
+    networks:
+      - bluegreen-net
+
+  beta-blue:
+    build: ./services/svc-beta
+    container_name: beta-blue
+    profiles: [blue]
+    environment:
+      SERVICE_NAME: beta
+      COLOR: blue
+      VERSION: "1.0"
+    networks:
+      - bluegreen-net
+
+  gamma-blue:
+    build: ./services/svc-gamma
+    container_name: gamma-blue
+    profiles: [blue]
+    environment:
+      SERVICE_NAME: gamma
+      COLOR: blue
+      VERSION: "1.0"
+    networks:
+      - bluegreen-net
+
+  delta-blue:
+    build: ./services/svc-delta
+    container_name: delta-blue
+    profiles: [blue]
+    environment:
+      SERVICE_NAME: delta
+      COLOR: blue
+      VERSION: "1.0"
+    networks:
+      - bluegreen-net
+
+  epsilon-blue:
+    build: ./services/svc-epsilon
+    container_name: epsilon-blue
+    profiles: [blue]
+    ports:
+      - "8105:5000"           # exposed for Ansible pre-switch health checks
+    environment:
+      SERVICE_NAME: epsilon
+      COLOR: blue
+      VERSION: "1.0"
+      ALPHA_URL: "http://alpha-blue:5000"
+      BETA_URL:  "http://beta-blue:5000"
+      GAMMA_URL: "http://gamma-blue:5000"
+      DELTA_URL: "http://delta-blue:5000"
+    depends_on:
+      - alpha-blue
+      - beta-blue
+      - gamma-blue
+      - delta-blue
+    networks:
+      - bluegreen-net
+
+  # ══ GREEN environment ═════════════════════════════════════════
+  alpha-green:
+    build: ./services/svc-alpha
+    container_name: alpha-green
+    profiles: [green]
+    environment:
+      SERVICE_NAME: alpha
+      COLOR: green
+      VERSION: "2.0"
+    networks:
+      - bluegreen-net
+
+  beta-green:
+    build: ./services/svc-beta
+    container_name: beta-green
+    profiles: [green]
+    environment:
+      SERVICE_NAME: beta
+      COLOR: green
+      VERSION: "2.0"
+    networks:
+      - bluegreen-net
+
+  gamma-green:
+    build: ./services/svc-gamma
+    container_name: gamma-green
+    profiles: [green]
+    environment:
+      SERVICE_NAME: gamma
+      COLOR: green
+      VERSION: "2.0"
+    networks:
+      - bluegreen-net
+
+  delta-green:
+    build: ./services/svc-delta
+    container_name: delta-green
+    profiles: [green]
+    environment:
+      SERVICE_NAME: delta
+      COLOR: green
+      VERSION: "2.0"
+    networks:
+      - bluegreen-net
+
+  epsilon-green:
+    build: ./services/svc-epsilon
+    container_name: epsilon-green
+    profiles: [green]
+    ports:
+      - "8205:5000"           # exposed for Ansible pre-switch health checks
+    environment:
+      SERVICE_NAME: epsilon
+      COLOR: green
+      VERSION: "2.0"
+      ALPHA_URL: "http://alpha-green:5000"
+      BETA_URL:  "http://beta-green:5000"
+      GAMMA_URL: "http://gamma-green:5000"
+      DELTA_URL: "http://delta-green:5000"
+    depends_on:
+      - alpha-green
+      - beta-green
+      - gamma-green
+      - delta-green
+    networks:
+      - bluegreen-net

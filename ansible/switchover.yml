@@ -1,0 +1,48 @@
+---
+# ─────────────────────────────────────────────────────────
+#  switchover.yml — Nginx upstream-only swap (no container ops)
+#  Useful for testing the Nginx reload mechanism in isolation.
+#  Usage:
+#    ansible-playbook ansible/switchover.yml -e "target=green"
+#    ansible-playbook ansible/switchover.yml -e "target=blue"
+# ─────────────────────────────────────────────────────────
+- name: "Nginx upstream switchover"
+  hosts: local
+  gather_facts: true
+
+  vars:
+    target: "blue"    # override with -e "target=green"
+
+  tasks:
+    - name: "Validate target value"
+      fail:
+        msg: "target must be 'blue' or 'green'. Got: {{ target }}"
+      when: target not in ['blue', 'green']
+
+    - name: "Write {{ target }} upstream config"
+      copy:
+        dest: "{{ nginx_upstream_conf }}"
+        content: |
+          # Managed by Ansible — switchover.yml
+          # Target: {{ target }} | Switched at: {{ ansible_date_time.iso8601 }}
+          upstream app_upstream {
+              server epsilon-{{ target }}:5000;
+          }
+        mode: "0644"
+
+    - name: "Reload Nginx → now serving {{ target }}"
+      command: docker exec nginx nginx -s reload
+
+    - name: "Verify gateway responds after switch"
+      uri:
+        url: "{{ gateway_url }}"
+        status_code: [200, 503]
+        timeout: 5
+      register: verify
+      retries: 5
+      delay: 2
+      until: verify.status is defined
+
+    - name: "Switch result"
+      debug:
+        msg: "Nginx is now routing to {{ target }}. Gateway returned HTTP {{ verify.status }}."

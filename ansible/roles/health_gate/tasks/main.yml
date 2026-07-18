@@ -1,0 +1,49 @@
+---
+# ─────────────────────────────────────────────────────────
+#  Role: health_gate
+#  Purpose: Poll the gateway after switchover.
+#           If health checks fail → auto-rollback to blue.
+# ─────────────────────────────────────────────────────────
+
+- name: "GATE | Poll gateway health ({{ health_gate_retries }} retries, {{ health_gate_delay }}s apart)"
+  uri:
+    url: "{{ gateway_url }}"
+    method: GET
+    status_code: 200
+    timeout: 5
+  register: gate_result
+  retries: "{{ health_gate_retries }}"
+  delay: "{{ health_gate_delay }}"
+  ignore_errors: true
+  until: gate_result.status is defined and gate_result.status == 200
+
+- name: "GATE | Set rollback flag"
+  set_fact:
+    rollback_triggered: "{{ gate_result.failed | default(false) or (gate_result.status | default(0)) != 200 }}"
+
+- name: "GATE | Report — health gate PASSED ✓"
+  debug:
+    msg: "Health gate PASSED. Green environment is healthy. Draining blue."
+  when: not rollback_triggered
+
+- name: "GATE | Report — health gate FAILED ✗ (triggering rollback)"
+  debug:
+    msg: "Health gate FAILED after {{ health_gate_retries }} retries. Initiating auto-rollback."
+  when: rollback_triggered
+
+- name: "GATE | AUTO-ROLLBACK"
+  include_role:
+    name: rollback
+  when: rollback_triggered
+
+- name: "GATE | Drain BLUE environment (stop, not remove)"
+  command: docker compose stop alpha-blue beta-blue gamma-blue delta-blue epsilon-blue
+  args:
+    chdir: "{{ project_root }}"
+  when: not rollback_triggered
+
+- name: "GATE | Ensure Nginx is up after blue drain"
+  command: docker compose up -d nginx
+  args:
+    chdir: "{{ project_root }}"
+  when: not rollback_triggered

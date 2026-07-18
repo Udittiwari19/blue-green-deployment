@@ -1,0 +1,12 @@
+---
+# ─────────────────────────────────────────────────────────
+#  deploy.yml — Master deployment playbook
+#  Runs: blue_green_deploy → health_gate → (auto-rollback if needed)
+#  Usage: ansible-playbook -i ansible/inventory/hosts.ini ansible/deploy.yml
+# ─────────────────────────────────────────────────────────
+- name: "Blue-Green Deploy — Blue → Green"
+  hosts: local
+  gather_facts: true
+
+  roles:
+    - blue_green_deploy

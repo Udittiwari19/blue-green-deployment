@@ -1,0 +1,33 @@
+# ── Java / Maven ───────────────────────────────────────────
+target/
+*.class
+*.jar
+*.war
+*.ear
+.mvn/
+mvnw
+mvnw.cmd
+
+# ── IDE ─────────────────────────────────────────────────────
+.idea/
+*.iml
+.vscode/
+*.swp
+
+# ── Docker ──────────────────────────────────────────────────
+# Keep docker-compose.yml (tracked), ignore overrides
+docker-compose.override.yml
+
+# ── Load test results (runtime output — not source code) ────
+load-test/results/
+load-test/wrk2_bin
+
+# ── Logs ────────────────────────────────────────────────────
+*.log
+
+# ── OS ──────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── PDF report (binary, not code) ───────────────────────────
+*.pdf

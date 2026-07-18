@@ -1,0 +1,5 @@
+---
+# health_gate configurable thresholds (overridden by group_vars/all.yml)
+health_gate_retries: 6
+health_gate_delay: 5
+rollback_triggered: false

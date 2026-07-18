@@ -1,0 +1,14 @@
+---
+# ─────────────────────────────────────────────────────────
+#  rollback.yml — Manual rollback playbook
+#  Usage: ansible-playbook -i ansible/inventory/hosts.ini ansible/rollback.yml
+# ─────────────────────────────────────────────────────────
+- name: "Blue-Green Rollback — Green → Blue"
+  hosts: local
+  gather_facts: true
+
+  vars:
+    rollback_reason: "manual_operator_trigger"
+
+  roles:
+    - rollback
