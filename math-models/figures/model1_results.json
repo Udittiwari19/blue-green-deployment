@@ -1,0 +1,21 @@
+{
+  "model": "M/M/c Erlang-C",
+  "c": 50,
+  "mu": 2.629226,
+  "mean_service_ms": 380.34,
+  "lambda_max": 131.46,
+  "lambda_test": 50,
+  "lambda_sat": 75,
+  "lambda_unsafe": 200,
+  "rho_test": 0.38034,
+  "rho_sat": 0.57051,
+  "rho_unsafe": 1.52136,
+  "wq_test_ms": 0.0,
+  "wq_sat_ms": 0.0032,
+  "p_wait_test": 0.0,
+  "p_wait_sat": 0.000181,
+  "measured_p50_warm_ms": 182.4,
+  "measured_p99_warm_ms": 2891.78,
+  "measured_p50_cold_ms": 5861.38,
+  "measured_p99_cold_ms": 9199.61
+}

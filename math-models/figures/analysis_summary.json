@@ -1,0 +1,41 @@
+{
+  "N": 50,
+  "real": 50,
+  "synthetic": 0,
+  "early_cut": 10,
+  "lambda": 50,
+  "mu": 2.629226,
+  "rho": 0.38034,
+  "Wq_ms": 0.0,
+  "switchover_mean_s": 29.243,
+  "switchover_median_s": 14.35,
+  "switchover_std_s": 25.47,
+  "switchover_min_s": 12.899,
+  "switchover_max_s": 113.447,
+  "D_star_s": 103.783,
+  "p99_mean_ms": 4031.93,
+  "p99_median_ms": 157.32,
+  "p99_max_ms": 32210.0,
+  "total_errors": 1166,
+  "zero_error_trials": 46,
+  "p_zero_error": 0.92,
+  "ci_lo_95": 0.8116,
+  "ci_hi_95": 0.9685,
+  "early_phase": {
+    "n": 10,
+    "zero_error": 7,
+    "total_errors": 1152,
+    "p_zero_error": 0.7,
+    "ci_lo_95": 0.3968,
+    "ci_hi_95": 0.8922
+  },
+  "late_phase": {
+    "n": 40,
+    "zero_error": 39,
+    "total_errors": 14,
+    "p_zero_error": 0.975,
+    "ci_lo_95": 0.8712,
+    "ci_hi_95": 0.9956,
+    "D_star_s": 103.783
+  }
+}
